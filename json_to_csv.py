@@ -1,6 +1,8 @@
 import sys
 import json
 import csv
+import copy
+from collections import OrderedDict
 
 ##
 # Convert to string keeping encoding in mind...
@@ -26,36 +28,64 @@ def to_string(s):
 #   }
 # }
 # To
+# [
 # {
 #   "node_item_1":"value_11",
 #   "node_item_2":"value_12",
 #   "node_item_3":"value_13",
-#   "node_item_4_0":"sub_value_14", 
+#   "node_item_4":"sub_value_14", 
 #   "node_item_4_1":"sub_value_15",
 #   "node_item_5_sub_item_1":"sub_item_value_11",
-#   "node_item_5_sub_item_2_0":"sub_item_value_12",
-#   "node_item_5_sub_item_2_0":"sub_item_value_13"
+#   "node_item_5_sub_item_2":"sub_item_value_12",
+# }, {
+#   "node_item_1":"value_11",
+#   "node_item_2":"value_12",
+#   "node_item_3":"value_13",
+#   "node_item_4":"sub_value_15", 
+#   "node_item_5_sub_item_1":"sub_item_value_11",
+#   "node_item_5_sub_item_2":"sub_item_value_13"
+# },
+# {
+#   "node_item_1":"value_11",
+#   "node_item_2":"value_12",
+#   "node_item_3":"value_13",
+#   "node_item_4":"sub_value_14", 
+#   "node_item_4_1":"sub_value_15",
+#   "node_item_5_sub_item_1":"sub_item_value_11",
+#   "node_item_5_sub_item_2":"sub_item_value_12",
+# }, {
+#   "node_item_1":"value_11",
+#   "node_item_2":"value_12",
+#   "node_item_3":"value_13",
+#   "node_item_4":"sub_value_15", 
+#   "node_item_5_sub_item_1":"sub_item_value_11",
+#   "node_item_5_sub_item_2":"sub_item_value_13"
 # }
+# ]
+
+
+]
 ##
-def reduce_item(key, value):
-    global reduced_item
-    
+def reduce_item(header, row_so_far, processed_data, key, value, last):
     #Reduction Condition 1
     if type(value) is list:
         i=0
         for sub_item in value:
-            reduce_item(key+'_'+to_string(i), sub_item)
+            reduce_item(header, copy.deepcopy(row_so_far), processed_data, key, sub_item, last)
             i=i+1
 
     #Reduction Condition 2
     elif type(value) is dict:
-        sub_keys = value.keys()
-        for sub_key in sub_keys:
-            reduce_item(key+'_'+to_string(sub_key), value[sub_key])
+        od = OrderedDict(value)
+        for sub_key in od:
+            reduce_item(header, row_so_far, processed_data, key+'_'+to_string(sub_key), od[sub_key], last and (sub_key == list(od)[-1]))
     
     #Base Condition
     else:
-        reduced_item[to_string(key)] = to_string(value)
+        row_so_far[to_string(key)] = to_string(value)
+        if last:
+            processed_data.append(row_so_far)
+            header += row_so_far.keys()
 
 
 if __name__ == "__main__":
@@ -80,12 +110,8 @@ if __name__ == "__main__":
         processed_data = []
         header = []
         for item in data_to_be_processed:
-            reduced_item = {}
-            reduce_item(node, item)
+            reduce_item(header, {}, processed_data, node, item, True)
 
-            header += reduced_item.keys()
-
-            processed_data.append(reduced_item)
 
         header = list(set(header))
         header.sort()
